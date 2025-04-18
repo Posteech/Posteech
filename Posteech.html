@@ -1,0 +1,221 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Posteech</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+
+    <!-- Login / Signup Form -->
+    <div id="authContainer" class="flex justify-center items-center h-screen">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+            <h2 class="text-3xl font-bold text-center mb-6 text-blue-600">Posteech</h2>
+
+            <!-- Login -->
+            <div id="loginDiv">
+                <input id="loginUsername" type="text" class="w-full p-3 mb-4 border rounded-lg" placeholder="Username" />
+                <input id="loginPassword" type="password" class="w-full p-3 mb-4 border rounded-lg" placeholder="Password" />
+                <button id="loginButton" class="w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Login</button>
+                <p class="text-center mt-4">
+                    Don't have an account?
+                    <span id="showSignup" class="text-blue-600 cursor-pointer">Sign up</span>
+                </p>
+            </div>
+
+            <!-- Signup -->
+            <div id="signupDiv" class="hidden">
+                <input id="signupUsername" type="text" class="w-full p-3 mb-4 border rounded-lg" placeholder="Username" />
+                <input id="signupPassword" type="password" class="w-full p-3 mb-4 border rounded-lg" placeholder="Password" />
+                <button id="signupButton" class="w-full p-3 bg-green-500 text-white rounded-lg hover:bg-green-600">Sign Up</button>
+                <p class="text-center mt-4">
+                    Already have an account?
+                    <span id="showLogin" class="text-blue-600 cursor-pointer">Login</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="appContainer" class="hidden">
+        <!-- Header -->
+        <div class="bg-blue-600 p-4 text-white flex justify-between items-center">
+            <div id="userDisplay" class="font-semibold text-xl"></div>
+            <button id="logoutButton" class="bg-red-500 px-4 py-2 rounded-lg hover:bg-red-600">Logout</button>
+        </div>
+
+        <!-- New Post -->
+        <div class="p-6 bg-white shadow mb-4">
+            <textarea id="postText" class="w-full p-4 border rounded-lg" rows="4" placeholder="What's on your mind?" maxlength="1000"></textarea>
+            <button id="submitPostButton" class="mt-4 w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Post</button>
+        </div>
+
+        <!-- Posts List -->
+        <div id="postsList" class="space-y-4 px-6"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Récupération des données
+            let users = JSON.parse(localStorage.getItem('users')) || [];
+            let posts = JSON.parse(localStorage.getItem('posts')) || [];
+            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+
+            // Éléments du DOM
+            const authContainer = document.getElementById('authContainer');
+            const loginDiv = document.getElementById('loginDiv');
+            const signupDiv = document.getElementById('signupDiv');
+            const showSignup = document.getElementById('showSignup');
+            const showLogin = document.getElementById('showLogin');
+            const loginButton = document.getElementById('loginButton');
+            const signupButton = document.getElementById('signupButton');
+            const logoutButton = document.getElementById('logoutButton');
+            const appContainer = document.getElementById('appContainer');
+            const userDisplay = document.getElementById('userDisplay');
+            const postText = document.getElementById('postText');
+            const submitPostButton = document.getElementById('submitPostButton');
+            const postsList = document.getElementById('postsList');
+
+            // Basculer vers Signup/Login
+            showSignup.onclick = () => {
+                loginDiv.classList.add('hidden');
+                signupDiv.classList.remove('hidden');
+            };
+            showLogin.onclick = () => {
+                signupDiv.classList.add('hidden');
+                loginDiv.classList.remove('hidden');
+            };
+
+            // Création de compte
+            signupButton.onclick = () => {
+                const username = document.getElementById('signupUsername').value.trim();
+                const password = document.getElementById('signupPassword').value;
+                if (!username || !password) {
+                    alert('Both fields are required.');
+                    return;
+                }
+                if (users.some(u => u.username === username)) {
+                    alert('Username already exists.');
+                    return;
+                }
+                const newUser = { username, password };
+                users.push(newUser);
+                localStorage.setItem('users', JSON.stringify(users));
+                loginUser(newUser);
+            };
+
+            // Connexion
+            loginButton.onclick = () => {
+                const username = document.getElementById('loginUsername').value.trim();
+                const password = document.getElementById('loginPassword').value;
+                const user = users.find(u => u.username === username && u.password === password);
+                if (!user) {
+                    alert('Invalid credentials.');
+                    return;
+                }
+                loginUser(user);
+            };
+
+            function loginUser(user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                authContainer.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                userDisplay.textContent = user.username;
+                renderPosts();
+            }
+
+            // Déconnexion
+            logoutButton.onclick = () => {
+                localStorage.removeItem('currentUser');
+                currentUser = null;
+                appContainer.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+            };
+
+            // Création de post
+            submitPostButton.onclick = () => {
+                const text = postText.value.trim();
+                if (!text) {
+                    alert('Cannot post empty content.');
+                    return;
+                }
+                if (text.length > 1000) {
+                    alert('Post cannot exceed 1000 characters.');
+                    return;
+                }
+                const post = {
+                    id: Date.now(),
+                    text,
+                    createdBy: currentUser.username,
+                    likes: []
+                };
+                posts.unshift(post);
+                localStorage.setItem('posts', JSON.stringify(posts));
+                postText.value = '';
+                renderPosts();
+            };
+
+            // Rendu des posts
+            function renderPosts() {
+                postsList.innerHTML = '';
+                posts.forEach(post => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-6 rounded-lg shadow';
+
+                    // Header auteur
+                    const header = document.createElement('div');
+                    header.className = 'flex items-center mb-4';
+                    const avatar = document.createElement('span');
+                    avatar.className = 'w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-white mr-3';
+                    avatar.textContent = post.createdBy.charAt(0).toUpperCase();
+                    const name = document.createElement('span');
+                    name.className = 'font-semibold';
+                    name.textContent = post.createdBy;
+                    header.append(avatar, name);
+
+                    // Contenu
+                    const content = document.createElement('p');
+                    content.className = 'mb-4';
+                    content.textContent = post.text;
+
+                    // Actions
+                    const actions = document.createElement('div');
+                    actions.className = 'flex items-center space-x-3';
+                    const likeBtn = document.createElement('button');
+                    likeBtn.className = 'bg-blue-500 text-white px-3 py-1 rounded';
+                    likeBtn.textContent = `❤️ ${post.likes.length}`;
+                    likeBtn.onclick = () => {
+                        if (!post.likes.includes(currentUser.username)) {
+                            post.likes.push(currentUser.username);
+                            localStorage.setItem('posts', JSON.stringify(posts));
+                            renderPosts();
+                        }
+                    };
+                    actions.append(likeBtn);
+                    if (post.createdBy === currentUser.username) {
+                        const delBtn = document.createElement('button');
+                        delBtn.className = 'bg-red-500 text-white px-3 py-1 rounded';
+                        delBtn.textContent = 'Delete';
+                        delBtn.onclick = () => {
+                            posts = posts.filter(p => p.id !== post.id);
+                            localStorage.setItem('posts', JSON.stringify(posts));
+                            renderPosts();
+                        };
+                        actions.append(delBtn);
+                    }
+
+                    card.append(header, content, actions);
+                    postsList.append(card);
+                });
+            }
+
+            // Si déjà connecté au chargement
+            if (currentUser) {
+                loginUser(currentUser);
+            }
+        });
+    </script>
+</body>
+</html>
